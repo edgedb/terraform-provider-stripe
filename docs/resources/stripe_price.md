@@ -9,10 +9,10 @@ The Stripe Price can be created, modified and configured by this resource.
 
 With this resource, you can create a price - [Stripe API price documentation](https://stripe.com/docs/api/prices).
 
-Prices define the unit cost, currency, and (optional) billing cycle for both recurring and one-time purchases of 
-products. Products help you track inventory or provisioning, and prices help you track payment terms. 
+Prices define the unit cost, currency, and (optional) billing cycle for both recurring and one-time purchases of
+products. Products help you track inventory or provisioning, and prices help you track payment terms.
 
-Different physical goods or levels of service should be represented by products, and pricing options should be 
+Different physical goods or levels of service should be represented by products, and pricing options should be
 represented by prices. This approach lets you change prices without having to change your provisioning scheme.
 
 For example, you might have a single "gold" product that has prices for $10/month, $100/year, and €9 once.
@@ -35,7 +35,7 @@ resource "stripe_price" "price" {
   // product needs to be defined
   product        = stripe_product.product.id
   currency       = "aud"
-  unit_amount    = -1
+  unit_amount    = 0
 }
 
 // recurring price for the product
@@ -64,7 +64,7 @@ resource "stripe_price" "price" {
     up_to       = 10
     unit_amount = 300
   }
-  
+
   tiers {
     up_to               = -1
     unit_amount_decimal = 100.5
@@ -86,7 +86,7 @@ Arguments accepted by this resource include:
 
 * `currency` - (Required) String. Three-letter ISO currency code, in lowercase.
 * `product` - (Required) String. The ID of the product that this price will belong to.
-* `unit_amount` - (Required unless `billing_scheme = tiered`) Int. A positive integer in cents (or `-1` for a free price) representing how much to charge.
+* `unit_amount` - (Required unless `billing_scheme = tiered`) Int. A non-negative integer in cents representing how much to charge.
 * `unit_amount_decimal` - (Optional) Float. Same as `unit_amount`, but accepts a decimal value in cents with at most 12 decimal places. Only one of `unit_amount` and `unit_amount_decimal` can be set.
 * `active` - (Optional) Bool. Whether the price can be used for new purchases. Defaults to `true`.
 * `nickname` - (Optional) String. A brief description of the price, hidden from customers.
@@ -114,10 +114,10 @@ Arguments accepted by this resource include:
 `tiers` Can be used multiple times within the Price resource and supports the following arguments:
 
 * `up_to` - (Required) Int. Specifies the upper bound of this tier. The lower bound of a tier is the upper bound of the previous tier adding one. Use `-1` to define a fallback tier.
-* `flat_amount` - (Optional) Int. The flat billing amount for an entire tier, regardless of the number of units in the tier. Use `-1` to define a free price.
-* `flat_amount_decimal` - (Optional) Float. Same as `flat_amount`, but accepts a decimal value representing an integer in the minor units of the currency. Only one of `flat_amount` and `flat_amount_decimal` can be set. Use `-1` to define a free price. 
-* `unit_amount` - (Optional) Int. The per-unit billing amount for each individual unit for which this tier applies. Use `-1` to define a free price.
-* `unit_amount_decimal` - (Optional) Float. Same as `unit_amount`, but accepts a decimal value in cents with at most 12 decimal places. Only one of `unit_amount` and `unit_amount_decimal` can be set. Use `-1` to define a free price.
+* `flat_amount` - (Optional) Int. The flat billing amount for an entire tier, regardless of the number of units in the tier.
+* `flat_amount_decimal` - (Optional) Float. Same as `flat_amount`, but accepts a decimal value representing an integer in the minor units of the currency. Only one of `flat_amount` and `flat_amount_decimal` can be set.
+* `unit_amount` - (Optional) Int. The per-unit billing amount for each individual unit for which this tier applies.
+* `unit_amount_decimal` - (Optional) Float. Same as `unit_amount`, but accepts a decimal value in cents with at most 12 decimal places. Only one of `unit_amount` and `unit_amount_decimal` can be set.
 
 ### Transform Quantity
 
@@ -133,17 +133,17 @@ Attributes exported by this resource include:
 * `id` - String. The unique identifier for the object.
 * `currency` - String. Three-letter ISO currency code.
 * `product` - String. The ID of the product that this price will belong to.
-* `unit_amount` - Int. A positive integer in cents (or `-1` for a free price) representing how much to charge.
+* `unit_amount` - Int. A non-negative integer in cents representing how much to charge.
 * `unit_amount_decimal` - Float. Same as `unit_amount`, but accepts a decimal value in cents with at most 12 decimal places.
 * `active` - Bool. Whether the price can be used for new purchases. Defaults to `true`.
 * `nickname` - String. A brief description of the price, hidden from customers.
-* `recurring` - List(Resource). The recurring components of a price such as `interval` and `usage_type`. 
-* `tiers` - List(Resource). Each element represents a pricing tier. 
+* `recurring` - List(Resource). The recurring components of a price such as `interval` and `usage_type`.
+* `tiers` - List(Resource). Each element represents a pricing tier.
 * `tiers_mode` - String. Defines if the tiering price should be `graduated` or `volume` based.
-* `billing_scheme` - String. Describes how to compute the price per period. 
+* `billing_scheme` - String. Describes how to compute the price per period.
 * `lookup_key` - String. A lookup key used to retrieve prices dynamically from a static string.
 * `transfer_lookup_key` - Bool. `true` when lookup key was transferred.
 * `tax_behaviour` - String. Specifies whether the price is considered inclusive of taxes or exclusive of taxes.
-* `transform_quantity` - List(Resource). Apply a transformation to the reported usage or set quantity before computing the billed price. 
+* `transform_quantity` - List(Resource). Apply a transformation to the reported usage or set quantity before computing the billed price.
 * `type` - String. One of `one_time` or `recurring` depending on whether the price is for a one-time purchase or a recurring (subscription) purchase.
 * `metadata` - Map(String). Set of key-value pairs that you can attach to an object.

@@ -206,12 +206,16 @@ func resourceStripePrice() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"divide_by": {
 							Type:        schema.TypeInt,
-							Required:    true,
+							Optional:    true,
+							Default:     1,
+							ForceNew:    true,
 							Description: "Divide usage by this number.",
 						},
 						"round": {
 							Type:        schema.TypeString,
-							Required:    true,
+							Optional:    true,
+							Default:     "up",
+							ForceNew:    true,
 							Description: "After division, either round the result up or down",
 						},
 					},
@@ -250,6 +254,10 @@ func resourceStripePriceRead(_ context.Context, d *schema.ResourceData, m interf
 			}
 		}
 		return diag.FromErr(err)
+	}
+
+	if price.UnitAmount != 0 && price.UnitAmountDecimal != 0 {
+		price.UnitAmount = 0
 	}
 
 	return CallSet(
@@ -331,14 +339,14 @@ func resourceStripePriceCreate(ctx context.Context, d *schema.ResourceData, m in
 
 	if unitAmount, set := d.GetOk("unit_amount"); set {
 		amount := ToInt64(unitAmount)
-		// amount is -1 when free price is required
-		if amount < 0 {
-			amount = 0
-		}
 		params.UnitAmount = stripe.Int64(amount)
 	}
 	if unitAmountDecimal, set := d.GetOk("unit_amount_decimal"); set {
-		params.UnitAmountDecimal = stripe.Float64(ToFloat64(unitAmountDecimal))
+		amount := ToFloat64(unitAmountDecimal)
+		params.UnitAmountDecimal = stripe.Float64(amount)
+	}
+	if params.UnitAmount == nil && params.UnitAmountDecimal == nil {
+		params.UnitAmountDecimal = stripe.Float64(0)
 	}
 	if nickname, set := d.GetOk("nickname"); set {
 		params.Nickname = stripe.String(ToString(nickname))
