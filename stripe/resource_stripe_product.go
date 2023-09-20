@@ -256,7 +256,9 @@ func resourceStripeProductUpdate(ctx context.Context, d *schema.ResourceData, m 
 
 func resourceStripeProductDelete(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*client.API)
-	_, err := c.Products.Del(d.Id(), nil)
+	params := &stripe.ProductParams{}
+	params.Active = stripe.Bool(false)
+	_, err := c.Products.Update(d.Id(), params)
 	if err != nil {
 		return diag.FromErr(err)
 	}
