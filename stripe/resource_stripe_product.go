@@ -2,6 +2,7 @@ package stripe
 
 import (
 	"context"
+	"errors"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -96,6 +97,15 @@ func resourceStripeProductRead(_ context.Context, d *schema.ResourceData, m inte
 	c := m.(*client.API)
 	product, err := c.Products.Get(d.Id(), nil)
 	if err != nil {
+		var stripeErr *stripe.Error
+		if errors.As(err, &stripeErr) {
+			if stripeErr.Type == stripe.ErrorTypeInvalidRequest &&
+				stripeErr.HTTPStatusCode == 404 {
+				// Product got deleted in Stripe
+				d.SetId("")
+				return nil
+			}
+		}
 		return diag.FromErr(err)
 	}
 

@@ -2,7 +2,7 @@ package stripe
 
 import (
 	"context"
-	"log"
+	"errors"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -72,11 +72,13 @@ func resourceStripePrice() *schema.Resource {
 						"interval": {
 							Type:        schema.TypeString,
 							Required:    true,
+							ForceNew:    true,
 							Description: "Specifies billing frequency. Either day, week, month or year.",
 						},
 						"aggregate_usage": {
 							Type:     schema.TypeString,
 							Optional: true,
+							ForceNew: true,
 							Description: "Specifies a usage aggregation strategy for prices of usage_type=metered. " +
 								"Allowed values are sum for summing up all usage during a period, " +
 								"last_during_period for using the last usage record reported within a period, " +
@@ -86,6 +88,7 @@ func resourceStripePrice() *schema.Resource {
 						"interval_count": {
 							Type:     schema.TypeInt,
 							Optional: true,
+							ForceNew: true,
 							Description: "The number of intervals between subscription billings. " +
 								"For example, interval=month and interval_count=3 bills every 3 months. " +
 								"Maximum of one year interval allowed (1 year, 12 months, or 52 weeks).",
@@ -93,6 +96,7 @@ func resourceStripePrice() *schema.Resource {
 						"usage_type": {
 							Type:     schema.TypeString,
 							Optional: true,
+							ForceNew: true,
 							Default:  "licensed",
 							Description: "Configures how the quantity per period should be determined. " +
 								"Can be either metered or licensed. licensed automatically bills the quantity " +
@@ -114,6 +118,7 @@ func resourceStripePrice() *schema.Resource {
 						"up_to": {
 							Type:     schema.TypeInt,
 							Optional: true,
+							ForceNew: true,
 							Description: "Specifies the upper bound of this tier. " +
 								"The lower bound of a tier is the upper bound of the previous tier adding one. " +
 								"Use -1 to define a fallback tier.",
@@ -121,12 +126,14 @@ func resourceStripePrice() *schema.Resource {
 						"flat_amount": {
 							Type:     schema.TypeInt,
 							Optional: true,
+							ForceNew: true,
 							Description: "The flat billing amount for an entire tier, " +
 								"regardless of the number of units in the tier.",
 						},
 						"flat_amount_decimal": {
 							Type:     schema.TypeFloat,
 							Optional: true,
+							ForceNew: true,
 							Description: "Same as flat_amount, but accepts a decimal value representing an integer " +
 								"in the minor units of the currency. " +
 								"Only one of flat_amount and flat_amount_decimal can be set.",
@@ -134,12 +141,14 @@ func resourceStripePrice() *schema.Resource {
 						"unit_amount": {
 							Type:     schema.TypeInt,
 							Optional: true,
+							ForceNew: true,
 							Description: "The per unit billing amount for each individual unit " +
 								"for which this tier applies.",
 						},
 						"unit_amount_decimal": {
 							Type:     schema.TypeFloat,
 							Optional: true,
+							ForceNew: true,
 							Description: "Same as unit_amount, but accepts a decimal value in cents with " +
 								"at most 12 decimal places. " +
 								"Only one of unit_amount and unit_amount_decimal can be set.",
@@ -227,8 +236,19 @@ func resourceStripePrice() *schema.Resource {
 
 func resourceStripePriceRead(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(*client.API)
-	price, err := c.Prices.Get(d.Id(), nil)
+	params := &stripe.PriceParams{}
+	params.AddExpand("tiers")
+	price, err := c.Prices.Get(d.Id(), params)
 	if err != nil {
+		var stripeErr *stripe.Error
+		if errors.As(err, &stripeErr) {
+			if stripeErr.Type == stripe.ErrorTypeInvalidRequest &&
+				stripeErr.HTTPStatusCode == 404 {
+				// Price got deleted in Stripe
+				d.SetId("")
+				return nil
+			}
+		}
 		return diag.FromErr(err)
 	}
 
@@ -268,6 +288,12 @@ func resourceStripePriceRead(_ context.Context, d *schema.ResourceData, m interf
 						"flat_amount_decimal": tier.FlatAmountDecimal,
 						"unit_amount":         tier.UnitAmount,
 						"unit_amount_decimal": tier.UnitAmountDecimal,
+					}
+					if t["flat_amount"] != 0 && t["flat_amount_decimal"] != 0 {
+						t["flat_amount"] = 0
+					}
+					if t["unit_amount"] != 0 && t["unit_amount_decimal"] != 0 {
+						t["unit_amount"] = 0
 					}
 					tiers = append(tiers, t)
 				}
@@ -337,38 +363,40 @@ func resourceStripePriceCreate(ctx context.Context, d *schema.ResourceData, m in
 			priceTier := &stripe.PriceTierParams{}
 			for k, v := range ToMap(t) {
 				switch {
-				case k == "up_to" && ToInt64(v) != 0:
+				case k == "up_to":
 					upTo := ToInt64(v)
 					if upTo < 0 {
 						priceTier.UpToInf = stripe.Bool(true)
 					} else {
-						priceTier.UpTo = stripe.Int64(ToInt64(v))
+						priceTier.UpTo = stripe.Int64(upTo)
 					}
-				case k == "flat_amount" && ToInt64(v) != 0:
+				case k == "flat_amount":
 					amount := ToInt64(v)
-					if amount < 0 {
-						amount = 0
+					if amount != 0 {
+						priceTier.FlatAmount = stripe.Int64(amount)
 					}
-					priceTier.FlatAmount = stripe.Int64(ToInt64(amount))
-				case k == "flat_amount_decimal" && ToFloat64(v) != 0:
+				case k == "flat_amount_decimal":
 					amount_decimal := ToFloat64(v)
-					if amount_decimal < 0 {
-						amount_decimal = 0
+					if amount_decimal != 0 {
+						priceTier.FlatAmountDecimal = stripe.Float64(amount_decimal)
 					}
-					priceTier.FlatAmountDecimal = stripe.Float64(ToFloat64(amount_decimal))
-				case k == "unit_amount" && ToInt64(v) != 0:
+				case k == "unit_amount":
 					amount := ToInt64(v)
-					if amount < 0 {
-						amount = 0
+					if amount != 0 {
+						priceTier.UnitAmount = stripe.Int64(amount)
 					}
-					priceTier.UnitAmount = stripe.Int64(ToInt64(amount))
-				case k == "unit_amount_decimal" && ToFloat64(v) != 0:
+				case k == "unit_amount_decimal":
 					amount_decimal := ToFloat64(v)
-					if amount_decimal < 0 {
-						amount_decimal = 0
+					if amount_decimal != 0 {
+						priceTier.UnitAmountDecimal = stripe.Float64(amount_decimal)
 					}
-					priceTier.UnitAmountDecimal = stripe.Float64(ToFloat64(amount_decimal))
 				}
+			}
+			if priceTier.FlatAmount == nil &&
+				priceTier.UnitAmount == nil &&
+				priceTier.FlatAmountDecimal == nil &&
+				priceTier.UnitAmountDecimal == nil {
+				priceTier.UnitAmount = stripe.Int64(0)
 			}
 			params.Tiers = append(params.Tiers, priceTier)
 		}
@@ -459,8 +487,15 @@ func resourceStripePriceUpdate(ctx context.Context, d *schema.ResourceData, m in
 	return resourceStripePriceRead(ctx, d, m)
 }
 
-func resourceStripePriceDelete(_ context.Context, d *schema.ResourceData, _ interface{}) diag.Diagnostics {
-	log.Println("[WARN] Stripe SDK doesn't support Price deletion through API!")
+func resourceStripePriceDelete(_ context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	c := m.(*client.API)
+	params := &stripe.PriceParams{}
+	params.Active = stripe.Bool(false)
+	_, err := c.Prices.Update(d.Id(), params)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
 	d.SetId("")
 	return nil
 }

@@ -1,6 +1,6 @@
-module github.com/umisora/terraform-provider-stripe
+module github.com/edgedb/terraform-provider-stripe
 
-go 1.17
+go 1.20
 
 require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.7.0

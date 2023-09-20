@@ -5,8 +5,8 @@ import (
 	"flag"
 	"log"
 
+	"github.com/edgedb/terraform-provider-stripe/stripe"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
-	"github.com/umisora/terraform-provider-stripe/stripe"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 	}
 
 	if debugMode {
-		err := plugin.Debug(context.Background(), "local/umisora/stripe", opts)
+		err := plugin.Debug(context.Background(), "local/edgedb/stripe", opts)
 		if err != nil {
 			log.Fatal(err)
 		}

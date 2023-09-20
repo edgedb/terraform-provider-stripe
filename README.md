@@ -10,7 +10,7 @@ The Stripe Terraform Provider documentation can be found on the Terraform Provid
 terraform {
   required_providers {
     stripe = {
-      source = "umisora/stripe"
+      source = "edgedb/stripe"
     }
   }
 }
