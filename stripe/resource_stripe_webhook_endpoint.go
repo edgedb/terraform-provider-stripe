@@ -50,6 +50,12 @@ func resourceStripeWebhookEndpoint() *schema.Resource {
 				Default:     false,
 				Description: "Disable the webhook endpoint if set to true.",
 			},
+			"api_version": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				ForceNew:    true,
+				Description: "Events sent to this endpoint will be generated with this Stripe Version instead of your account’s default Stripe Version.",
+			},
 			"metadata": {
 				Type:     schema.TypeMap,
 				Optional: true,
@@ -74,6 +80,7 @@ func resourceStripeWebhookEndpointRead(_ context.Context, d *schema.ResourceData
 		d.Set("url", webhookEndpoint.URL),
 		d.Set("description", webhookEndpoint.Description),
 		d.Set("disabled", webhookEndpoint.Status != "enabled"),
+		d.Set("api_version", webhookEndpoint.APIVersion),
 		d.Set("metadata", webhookEndpoint.Metadata),
 	)
 }
@@ -86,6 +93,9 @@ func resourceStripeWebhookEndpointCreate(ctx context.Context, d *schema.Resource
 	}
 	if description, set := d.GetOk("description"); set {
 		params.Description = stripe.String(ToString(description))
+	}
+	if APIVersion, set := d.GetOk("api_version"); set {
+		params.APIVersion = stripe.String(ToString(APIVersion))
 	}
 	if meta, set := d.GetOk("metadata"); set {
 		for k, v := range ToMap(meta) {
